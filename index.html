@@ -3,11 +3,9 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Крестики-нолики</title>
+  <title>Крестики-нолики против бота</title>
   <style>
-    * {
-      box-sizing: border-box;
-    }
+    * { box-sizing: border-box; }
 
     body {
       margin: 0;
@@ -27,9 +25,7 @@
       text-align: center;
     }
 
-    h1 {
-      margin-bottom: 10px;
-    }
+    h1 { margin-bottom: 10px; }
 
     #status {
       min-height: 30px;
@@ -55,21 +51,9 @@
       touch-action: manipulation;
     }
 
-    .cell:active {
-      background: #4b5563;
-    }
-
-    .cell.x {
-      color: #60a5fa;
-    }
-
-    .cell.o {
-      color: #fbbf24;
-    }
-
-    .cell.win {
-      background: #166534;
-    }
+    .cell.x { color: #60a5fa; }
+    .cell.o { color: #fbbf24; }
+    .cell.win { background: #166534; }
 
     #restart {
       margin-top: 25px;
@@ -87,27 +71,17 @@
 <body>
   <main class="game">
     <h1>Крестики-нолики</h1>
-    <p id="status" aria-live="polite">Ходит X</p>
+    <p id="status" aria-live="polite">Твой ход: X</p>
 
-    <div class="board" id="board">
-      <button class="cell" aria-label="Клетка 1"></button>
-      <button class="cell" aria-label="Клетка 2"></button>
-      <button class="cell" aria-label="Клетка 3"></button>
-      <button class="cell" aria-label="Клетка 4"></button>
-      <button class="cell" aria-label="Клетка 5"></button>
-      <button class="cell" aria-label="Клетка 6"></button>
-      <button class="cell" aria-label="Клетка 7"></button>
-      <button class="cell" aria-label="Клетка 8"></button>
-      <button class="cell" aria-label="Клетка 9"></button>
-    </div>
+    <div class="board" id="board"></div>
 
     <button id="restart">Начать заново</button>
   </main>
 
   <script>
-    const cells = Array.from(document.querySelectorAll(".cell"));
-    const status = document.getElementById("status");
-    const restart = document.getElementById("restart");
+    const boardElement = document.getElementById("board");
+    const statusElement = document.getElementById("status");
+    const restartButton = document.getElementById("restart");
 
     const winningLines = [
       [0, 1, 2], [3, 4, 5], [6, 7, 8],
@@ -115,45 +89,129 @@
       [0, 4, 8], [2, 4, 6]
     ];
 
+    const cells = [];
+
+    for (let i = 0; i < 9; i++) {
+      const cell = document.createElement("button");
+      cell.className = "cell";
+      cell.setAttribute("aria-label", `Клетка ${i + 1}`);
+      cell.addEventListener("click", () => playerMove(i));
+      boardElement.appendChild(cell);
+      cells.push(cell);
+    }
+
     let board = Array(9).fill("");
-    let currentPlayer = "X";
     let gameOver = false;
+    let botThinking = false;
+    let botTimer = null;
 
-    cells.forEach((cell, index) => {
-      cell.addEventListener("click", () => {
-        if (gameOver || board[index] !== "") return;
+    function winningLineFor(mark) {
+      return winningLines.find(line =>
+        line.every(index => board[index] === mark)
+      );
+    }
 
-        board[index] = currentPlayer;
-        cell.textContent = currentPlayer;
-        cell.classList.add(currentPlayer.toLowerCase());
-        cell.setAttribute(
-          "aria-label",
-          `Клетка ${index + 1}: ${currentPlayer}`
-        );
+    function finishIfNeeded(mark) {
+      const line = winningLineFor(mark);
 
-        const winningLine = winningLines.find(line =>
-          line.every(position => board[position] === currentPlayer)
-        );
+      if (line) {
+        statusElement.textContent =
+          mark === "X" ? "Ты победил! 🎉" : "Бот победил!";
+        line.forEach(index => cells[index].classList.add("win"));
+        gameOver = true;
+        return true;
+      }
 
-        if (winningLine) {
-          status.textContent = `Победил ${currentPlayer}! 🎉`;
-          winningLine.forEach(position => cells[position].classList.add("win"));
-          gameOver = true;
-        } else if (board.every(value => value !== "")) {
-          status.textContent = "Ничья!";
-          gameOver = true;
-        } else {
-          currentPlayer = currentPlayer === "X" ? "O" : "X";
-          status.textContent = `Ходит ${currentPlayer}`;
+      if (board.every(value => value !== "")) {
+        statusElement.textContent = "Ничья!";
+        gameOver = true;
+        return true;
+      }
+
+      return false;
+    }
+
+    function placeMark(index, mark) {
+      board[index] = mark;
+      cells[index].textContent = mark;
+      cells[index].classList.add(mark.toLowerCase());
+      cells[index].setAttribute(
+        "aria-label",
+        `Клетка ${index + 1}: ${mark}`
+      );
+    }
+
+    function playerMove(index) {
+      if (gameOver || botThinking || board[index] !== "") return;
+
+      placeMark(index, "X");
+      if (finishIfNeeded("X")) return;
+
+      botThinking = true;
+      statusElement.textContent = "Бот думает…";
+
+      botTimer = setTimeout(() => {
+        botTimer = null;
+        const move = bestBotMove();
+        placeMark(move, "O");
+        botThinking = false;
+
+        if (!finishIfNeeded("O")) {
+          statusElement.textContent = "Твой ход: X";
         }
-      });
-    });
+      }, 400);
+    }
 
-    restart.addEventListener("click", () => {
+    function bestBotMove() {
+      let bestScore = -Infinity;
+      let bestMove = -1;
+
+      for (let i = 0; i < 9; i++) {
+        if (board[i] !== "") continue;
+
+        board[i] = "O";
+        const score = minimax(false, 0);
+        board[i] = "";
+
+        if (score > bestScore) {
+          bestScore = score;
+          bestMove = i;
+        }
+      }
+
+      return bestMove;
+    }
+
+    function minimax(botTurn, depth) {
+      if (winningLineFor("O")) return 10 - depth;
+      if (winningLineFor("X")) return depth - 10;
+      if (board.every(value => value !== "")) return 0;
+
+      let bestScore = botTurn ? -Infinity : Infinity;
+
+      for (let i = 0; i < 9; i++) {
+        if (board[i] !== "") continue;
+
+        board[i] = botTurn ? "O" : "X";
+        const score = minimax(!botTurn, depth + 1);
+        board[i] = "";
+
+        bestScore = botTurn
+          ? Math.max(bestScore, score)
+          : Math.min(bestScore, score);
+      }
+
+      return bestScore;
+    }
+
+    restartButton.addEventListener("click", () => {
+      if (botTimer !== null) clearTimeout(botTimer);
+
+      botTimer = null;
       board = Array(9).fill("");
-      currentPlayer = "X";
       gameOver = false;
-      status.textContent = "Ходит X";
+      botThinking = false;
+      statusElement.textContent = "Твой ход: X";
 
       cells.forEach((cell, index) => {
         cell.textContent = "";
