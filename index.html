@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Крестики-нолики</title>
+  <style>
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      padding: 20px;
+      background: #111827;
+      color: white;
+      font-family: Arial, sans-serif;
+    }
+
+    .game {
+      width: 100%;
+      max-width: 400px;
+      text-align: center;
+    }
+
+    h1 {
+      margin-bottom: 10px;
+    }
+
+    #status {
+      min-height: 30px;
+      margin-bottom: 24px;
+      font-size: 20px;
+    }
+
+    .board {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 10px;
+    }
+
+    .cell {
+      aspect-ratio: 1;
+      border: 0;
+      border-radius: 16px;
+      background: #374151;
+      color: white;
+      font-size: clamp(48px, 16vw, 76px);
+      font-weight: bold;
+      cursor: pointer;
+      touch-action: manipulation;
+    }
+
+    .cell:active {
+      background: #4b5563;
+    }
+
+    .cell.x {
+      color: #60a5fa;
+    }
+
+    .cell.o {
+      color: #fbbf24;
+    }
+
+    .cell.win {
+      background: #166534;
+    }
+
+    #restart {
+      margin-top: 25px;
+      padding: 14px 24px;
+      border: 0;
+      border-radius: 12px;
+      background: #2563eb;
+      color: white;
+      font-size: 18px;
+      font-weight: bold;
+      cursor: pointer;
+    }
+  </style>
+</head>
+<body>
+  <main class="game">
+    <h1>Крестики-нолики</h1>
+    <p id="status" aria-live="polite">Ходит X</p>
+
+    <div class="board" id="board">
+      <button class="cell" aria-label="Клетка 1"></button>
+      <button class="cell" aria-label="Клетка 2"></button>
+      <button class="cell" aria-label="Клетка 3"></button>
+      <button class="cell" aria-label="Клетка 4"></button>
+      <button class="cell" aria-label="Клетка 5"></button>
+      <button class="cell" aria-label="Клетка 6"></button>
+      <button class="cell" aria-label="Клетка 7"></button>
+      <button class="cell" aria-label="Клетка 8"></button>
+      <button class="cell" aria-label="Клетка 9"></button>
+    </div>
+
+    <button id="restart">Начать заново</button>
+  </main>
+
+  <script>
+    const cells = Array.from(document.querySelectorAll(".cell"));
+    const status = document.getElementById("status");
+    const restart = document.getElementById("restart");
+
+    const winningLines = [
+      [0, 1, 2], [3, 4, 5], [6, 7, 8],
+      [0, 3, 6], [1, 4, 7], [2, 5, 8],
+      [0, 4, 8], [2, 4, 6]
+    ];
+
+    let board = Array(9).fill("");
+    let currentPlayer = "X";
+    let gameOver = false;
+
+    cells.forEach((cell, index) => {
+      cell.addEventListener("click", () => {
+        if (gameOver || board[index] !== "") return;
+
+        board[index] = currentPlayer;
+        cell.textContent = currentPlayer;
+        cell.classList.add(currentPlayer.toLowerCase());
+        cell.setAttribute(
+          "aria-label",
+          `Клетка ${index + 1}: ${currentPlayer}`
+        );
+
+        const winningLine = winningLines.find(line =>
+          line.every(position => board[position] === currentPlayer)
+        );
+
+        if (winningLine) {
+          status.textContent = `Победил ${currentPlayer}! 🎉`;
+          winningLine.forEach(position => cells[position].classList.add("win"));
+          gameOver = true;
+        } else if (board.every(value => value !== "")) {
+          status.textContent = "Ничья!";
+          gameOver = true;
+        } else {
+          currentPlayer = currentPlayer === "X" ? "O" : "X";
+          status.textContent = `Ходит ${currentPlayer}`;
+        }
+      });
+    });
+
+    restart.addEventListener("click", () => {
+      board = Array(9).fill("");
+      currentPlayer = "X";
+      gameOver = false;
+      status.textContent = "Ходит X";
+
+      cells.forEach((cell, index) => {
+        cell.textContent = "";
+        cell.className = "cell";
+        cell.setAttribute("aria-label", `Клетка ${index + 1}`);
+      });
+    });
+  </script>
+</body>
+</html>
